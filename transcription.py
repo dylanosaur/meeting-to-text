@@ -63,5 +63,5 @@ def transcribe_audio(file_name):
         print(f'Transcription job failed with status: {status}')
         return None
 
-transcription = transcribe_audio('english.wav')
-print(transcription)
+# transcription = transcribe_audio('english.wav')
+# print(transcription)
