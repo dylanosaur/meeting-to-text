@@ -1,11 +1,19 @@
 import hashlib
+import json
 import os
 import time
 
 from flask import Flask, render_template, request, jsonify
+
+from database import db, SoundClip
 from transcription import transcribe_audio
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("AI_DETECTOR_RDS_URL")
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+
+db.init_app(app)
+
 
 @app.route('/')
 def index():
@@ -13,7 +21,13 @@ def index():
 
 
 from pydub import AudioSegment
+import wave
 
+def calculate_audio_hash(filepath):
+    with wave.open(filepath, 'rb') as wav:
+        frames = wav.readframes(wav.getnframes())
+        hash_object = hashlib.md5(frames)
+        return hash_object.hexdigest()
 
 def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
     # Create output directory if it doesn't exist
@@ -37,6 +51,50 @@ def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
         chunk_filename = f'{os.path.splitext(os.path.basename(filepath))[0]}_{i}.wav'
         chunk.export(os.path.join(output_dir, chunk_filename), format='wav')
 
+        data_hash = calculate_audio_hash(os.path.join(output_dir, chunk_filename))
+
+        hash_exists = SoundClip.query.filter(SoundClip.hash==data_hash).first()
+        if hash_exists:
+            print('hash collision, skipping', data_hash)
+            continue
+        print('adding new sound clip', data_hash)
+        # Create a new SoundClip object for the chunk and add it to the database
+        sound_clip = SoundClip(
+            hash=data_hash,
+            file_size_mb=os.path.getsize(os.path.join(output_dir, chunk_filename)) / (1024 * 1024),
+            file_name=chunk_filename,
+            chunk=True,
+            chunk_index=i
+        )
+        db.session.add(sound_clip)
+        db.session.commit()
+
+
+def process_chunks(file_hash):
+    combined_transcriptions = []
+    output_dir = f'./output_{file_hash}'
+    for filename in os.listdir(f'./output_{file_hash}'):
+        if filename.endswith('.wav'):
+            chunk_path = os.path.join(f'./output_{file_hash}', filename)
+
+            # Get the SoundClip object with the same hash as the current chunk
+            data_hash = calculate_audio_hash(os.path.join(output_dir, filename))
+
+            sound_clip = SoundClip.query.filter_by(hash=data_hash).first()
+
+            if sound_clip.transcriptions is None:
+                # If the transcriptions column is None, transcribe the chunk and store the transcription in the database
+                transcription = transcribe_audio(chunk_path)
+                combined_transcriptions.append(transcription)
+                sound_clip.transcriptions = json.dumps(transcription)
+                db.session.commit()
+            else:
+                # If the transcriptions column is not None, use the existing transcriptions
+                transcription = json.loads(sound_clip.transcriptions)
+                combined_transcriptions.append(transcription)
+
+    return combined_transcriptions
+
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -55,12 +113,7 @@ def transcribe():
     chop_audio_file(file_path, output_dir=f'./output_{file_hash}')
 
     # Transcribe each chunk and collect the transcriptions
-    transcriptions = []
-    for filename in os.listdir(f'./output_{file_hash}'):
-        if filename.endswith('.wav'):
-            chunk_path = os.path.join(f'./output_{file_hash}', filename)
-            transcription = transcribe_audio(chunk_path)
-            transcriptions.append(transcription)
+    transcriptions = process_chunks(file_hash)
 
     # Concatenate the transcriptions and return as the response
     return jsonify({'transcriptions': transcriptions})
