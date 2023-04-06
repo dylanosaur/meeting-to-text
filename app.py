@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import time
+from typing import List
 
 from flask import Flask, render_template, request, jsonify
 
@@ -70,8 +71,15 @@ def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
         db.session.commit()
 
 
+
+def longest_string_from_aws_transcribe_response(res):
+    # res is a [] of {}'s
+    data = res['results']['transcripts']
+    data.sort(key=lambda x: len(x['transcript']) )
+    return data[0]['transcript']
+
 def process_chunks(file_hash):
-    combined_transcriptions = []
+    reduced_transcriptions = []
     output_dir = f'./output_{file_hash}'
     for filename in os.listdir(f'./output_{file_hash}'):
         if filename.endswith('.wav'):
@@ -84,16 +92,20 @@ def process_chunks(file_hash):
 
             if sound_clip.transcriptions is None:
                 # If the transcriptions column is None, transcribe the chunk and store the transcription in the database
-                transcription = transcribe_audio(chunk_path)
-                combined_transcriptions.append(transcription)
-                sound_clip.transcriptions = json.dumps(transcription)
+                transcription_response = transcribe_audio(chunk_path)
+                sound_clip.transcriptions = json.dumps(transcription_response)
                 db.session.commit()
+                transcription = sound_clip.transcriptions
             else:
                 # If the transcriptions column is not None, use the existing transcriptions
                 transcription = json.loads(sound_clip.transcriptions)
-                combined_transcriptions.append(transcription)
-
-    return combined_transcriptions
+            loaded_transcription = json.loads(transcription)
+            reduced_transcriptions.append({
+                'index': sound_clip.chunk_index,
+                'text': longest_string_from_aws_transcribe_response(loaded_transcription)
+            })
+    reduced_transcriptions.sort(key=lambda x: x['index'])
+    return reduced_transcriptions
 
 
 @app.route('/transcribe', methods=['POST'])
