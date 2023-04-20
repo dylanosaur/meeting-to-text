@@ -10,7 +10,7 @@ def run_test_from_suite_path(SUITE_DIR):
     # Get a list of all the JSON files in the directory
     log_files = sorted(
         [f for f in os.listdir(SUITE_DIR) if f.endswith(".json")],
-        key=lambda f: f.split("-")[1].replace(".json", "")
+        key=lambda f: '-'.join(f.split("-")[1:]).replace(".json", "")
     )
 
     # Loop through the log files and replicate each request
@@ -22,11 +22,11 @@ def run_test_from_suite_path(SUITE_DIR):
 
             # Get the filename of the associated audio file
             if 'files' in request_info:
-                print("adding file", request_info['files'])
+                # print("adding file", request_info['files'])
                 audio_filename = request_info['files']
                 audio_path = os.path.join(SUITE_DIR, audio_filename)
                 audio_data = open(audio_path, "rb")
-                print('added audio files', audio_filename, flush=True)
+                # print('added audio files', audio_filename, flush=True)
             else:
                 audio_data = None
 
