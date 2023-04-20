@@ -41,7 +41,7 @@ def calculate_audio_hash(filepath):
         return hash_object.hexdigest()
 
 
-def chop_audio_file(filepath, output_dir='./output', chunk_length=20000):
+def chop_audio_file(filepath, output_dir='./output', chunk_length=30000):
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -96,10 +96,10 @@ def longest_string_from_aws_transcribe_response(res):
 # @log_function_call
 def process_chunks(file_hash):
     reduced_transcriptions = []
-    output_dir = f'./output_{file_hash}'
-    for filename in os.listdir(f'./output_{file_hash}'):
+    output_dir = os.path.join(app.config['UPLOAD_FOLDER'], f'output_{file_hash}')
+    for filename in os.listdir(output_dir):
         if filename.endswith('.wav'):
-            chunk_path = os.path.join(f'./output_{file_hash}', filename)
+            chunk_path = os.path.join(output_dir, filename)
 
             # Get the SoundClip object with the same hash as the current chunk
             data_hash = calculate_audio_hash(os.path.join(output_dir, filename))
@@ -145,7 +145,8 @@ def transcribe():
     file.save(file_path)
 
     # Chop the audio file into 10 second blocks
-    chop_audio_file(file_path, output_dir=f'output_{file_hash}')
+    outfile_directory = os.path.join(app.config['UPLOAD_FOLDER'], f'output_{file_hash}')
+    chop_audio_file(file_path, output_dir=outfile_directory)
 
     # Transcribe each chunk and collect the transcriptions
     transcriptions = process_chunks(file_hash)

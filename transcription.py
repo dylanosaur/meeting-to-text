@@ -51,7 +51,7 @@ def transcribe_audio(file_name):
             'TranscriptionJobStatus']
         if status in ['COMPLETED', 'FAILED']:
             break
-        print(f'Transcription job status: {status}')
+        # print(f'Transcription job status: {status}', flush=True)
         time.sleep(5)
 
     # Get the transcription results
@@ -60,7 +60,7 @@ def transcribe_audio(file_name):
         transcription = response['Body'].read().decode('utf-8')
         return transcription
     else:
-        print(f'Transcription job failed with status: {status}')
+        print(f'Transcription job failed with status: {status}', flush=True)
         return None
 
 # transcription = transcribe_audio('english.wav')
