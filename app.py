@@ -1,19 +1,29 @@
 import hashlib
 import json
 import os
+import shutil
 import time
 from typing import List
 
 from flask import Flask, render_template, request, jsonify
 
 from database import db, SoundClip
+from decorators.logging import middleware_log_request_info
 from transcription import transcribe_audio
+
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("AI_DETECTOR_RDS_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 db.init_app(app)
+
+
+@app.before_request
+def before_request():
+    middleware_log_request_info()
 
 
 @app.route('/')
@@ -30,12 +40,14 @@ def calculate_audio_hash(filepath):
         hash_object = hashlib.md5(frames)
         return hash_object.hexdigest()
 
-def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
+
+def chop_audio_file(filepath, output_dir='./output', chunk_length=20000):
     # Create output directory if it doesn't exist
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     # Load the audio file
+    print("searching for file at", filepath)
     audio = AudioSegment.from_file(filepath)
 
     # Calculate the total length of the audio file in milliseconds
@@ -58,7 +70,7 @@ def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
         if hash_exists:
             print('hash collision, skipping', data_hash)
             continue
-        print('adding new sound clip', data_hash)
+        print('adding new sound clip', data_hash, flush=True)
         # Create a new SoundClip object for the chunk and add it to the database
         sound_clip = SoundClip(
             hash=data_hash,
@@ -70,14 +82,18 @@ def chop_audio_file(filepath, output_dir='./output', chunk_length=10000):
         db.session.add(sound_clip)
         db.session.commit()
 
-
-
+# @log_function_call
 def longest_string_from_aws_transcribe_response(res):
     # res is a [] of {}'s
-    data = res['results']['transcripts']
-    data.sort(key=lambda x: len(x['transcript']) )
-    return data[0]['transcript']
+    print(type(res), res, flush=True)
+    try:
+        data = res['results']['transcripts']
+        data.sort(key=lambda x: len(x['transcript']) )
+        return data[0]['transcript']
+    except Exception as ex:
+        return ''
 
+# @log_function_call
 def process_chunks(file_hash):
     reduced_transcriptions = []
     output_dir = f'./output_{file_hash}'
@@ -95,10 +111,8 @@ def process_chunks(file_hash):
                 transcription_response = transcribe_audio(chunk_path)
                 sound_clip.transcriptions = json.dumps(transcription_response)
                 db.session.commit()
-                transcription = sound_clip.transcriptions
-            else:
-                # If the transcriptions column is not None, use the existing transcriptions
-                transcription = json.loads(sound_clip.transcriptions)
+
+            transcription = json.loads(sound_clip.transcriptions)
             loaded_transcription = json.loads(transcription)
             reduced_transcriptions.append({
                 'index': sound_clip.chunk_index,
@@ -111,6 +125,12 @@ def process_chunks(file_hash):
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     if 'file' not in request.files:
+        # print(dir(request))
+        # for field in dir(request):
+        #     print(field, getattr(request, field))
+        print('files', request.files, flush=True)
+        print(request.get_data(), flush=True)
+
         return jsonify({'error': 'No file uploaded'})
     file = request.files['file']
     if file.filename == '':
@@ -118,17 +138,45 @@ def transcribe():
     file_extension = file.filename.rsplit('.', 1)[1]
     hash_object = hashlib.sha256(str(time.time()).encode('utf-8'))
     file_hash = hash_object.hexdigest()
-    file_path = os.path.join('uploads', f"{file_hash}.{file_extension}")
+    file_path = os.path.join(os.getcwd(), 'uploads', f"{file_hash}.{file_extension}")
     file.save(file_path)
 
     # Chop the audio file into 10 second blocks
-    chop_audio_file(file_path, output_dir=f'./output_{file_hash}')
+    chop_audio_file(file_path, output_dir=f'output_{file_hash}')
 
     # Transcribe each chunk and collect the transcriptions
     transcriptions = process_chunks(file_hash)
 
     # Concatenate the transcriptions and return as the response
     return jsonify({'transcriptions': transcriptions})
+
+
+import os
+
+@app.route('/delete_all_sound_clips', methods=['GET'])
+def delete_all_sound_clips():
+    try:
+        # Delete sound clips from database
+        db.session.query(SoundClip).delete()
+        db.session.commit()
+
+        # Delete sound clip files from uploads directory
+        for file in os.listdir(app.config['UPLOAD_FOLDER']):
+            if file.endswith('.wav'):
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], file))
+
+        # Delete output directories
+        for folder in os.listdir('.'):
+            if folder.startswith('output_'):
+                shutil.rmtree(folder)
+
+        return 'All sound clips deleted successfully!', 200
+    except Exception as e:
+        db.session.rollback()
+        return f'An error occurred while deleting sound clips: {str(e)}', 500
+
+
+
 
 if __name__ == '__main__':
     app.run()
