@@ -85,7 +85,7 @@ def chop_audio_file(filepath, output_dir='./output', chunk_length=20000):
 # @log_function_call
 def longest_string_from_aws_transcribe_response(res):
     # res is a [] of {}'s
-    print(type(res), res, flush=True)
+    # print(type(res), res, flush=True)
     try:
         data = res['results']['transcripts']
         data.sort(key=lambda x: len(x['transcript']) )
@@ -128,14 +128,17 @@ def transcribe():
         # print(dir(request))
         # for field in dir(request):
         #     print(field, getattr(request, field))
-        print('files', request.files, flush=True)
-        print(request.get_data(), flush=True)
+        # print('files', request.files, flush=True)
+        # print(request.get_data(), flush=True)
 
         return jsonify({'error': 'No file uploaded'})
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No file selected'})
+        return jsonify({'error': 'No file selected'}), 400
     file_extension = file.filename.rsplit('.', 1)[1]
+    if file_extension not in ['wav']:
+        return jsonify({"message": "file type must be .wav"}), 400
+
     hash_object = hashlib.sha256(str(time.time()).encode('utf-8'))
     file_hash = hash_object.hexdigest()
     file_path = os.path.join(os.getcwd(), 'uploads', f"{file_hash}.{file_extension}")
@@ -148,7 +151,7 @@ def transcribe():
     transcriptions = process_chunks(file_hash)
 
     # Concatenate the transcriptions and return as the response
-    return jsonify({'transcriptions': transcriptions})
+    return jsonify({'transcriptions': transcriptions}), 200
 
 
 import os

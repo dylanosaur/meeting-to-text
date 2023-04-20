@@ -1,0 +1,31 @@
+{
+    "url": "http://localhost:5000/transcribe",
+    "method": "POST",
+    "headers": {
+        "Host": "localhost:5000",
+        "Connection": "keep-alive",
+        "Content-Length": "35044",
+        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": "\"Chromium\";v=\"112\", \"Brave\";v=\"112\", \"Not:A-Brand\";v=\"99\"",
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": "\"Windows\"",
+        "Upgrade-Insecure-Requests": "1",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+        "Origin": "http://localhost:5000",
+        "Content-Type": "multipart/form-data; boundary=----WebKitFormBoundaryG28TYZU4h7NYQEJq",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-Gpc": "1",
+        "Accept-Language": "en-US,en",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-User": "?1",
+        "Sec-Fetch-Dest": "document",
+        "Referer": "http://localhost:5000/",
+        "Accept-Encoding": "gzip, deflate, br"
+    },
+    "data": "",
+    "form": {},
+    "args": {},
+    "cookies": {},
+    "files": "c3db4407309cffdc9d78587bf7afc0aa642bbbc49336101770f67f1be74a657b.pdf"
+}
