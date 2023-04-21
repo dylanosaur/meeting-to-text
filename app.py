@@ -3,15 +3,12 @@ import json
 import os
 import shutil
 import time
-from typing import List
 
 from flask import Flask, render_template, request, jsonify
 
 from database import db, SoundClip
 from decorators.logging import middleware_log_request_info
 from transcription import transcribe_audio
-
-
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("AI_DETECTOR_RDS_URL")
@@ -144,11 +141,12 @@ def transcribe():
     file_path = os.path.join(os.getcwd(), 'uploads', f"{file_hash}.{file_extension}")
     file.save(file_path)
 
-    # Chop the audio file into 10 second blocks
+    # Chop the audio file into 30 second blocks
     outfile_directory = os.path.join(app.config['UPLOAD_FOLDER'], f'output_{file_hash}')
     chop_audio_file(file_path, output_dir=outfile_directory)
 
     # Transcribe each chunk and collect the transcriptions
+    # the file hash is used for the name of the chunks, so it serves as a key
     transcriptions = process_chunks(file_hash)
 
     # Concatenate the transcriptions and return as the response
