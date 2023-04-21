@@ -68,5 +68,5 @@ if __name__ == '__main__':
     all_tests = [f.name for f in os.scandir(dir_path) if f.is_dir()]
     print(all_tests)
     for test_suite in all_tests:
-        print(test_suite, '============')
+        print('============', test_suite, '============')
         run_test_from_suite_path(test_suite)
