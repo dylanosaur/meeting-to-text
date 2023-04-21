@@ -4,3 +4,4 @@ __pycache__/
 uploads/
 output*
 request_logs/
+generated_test_suites/
