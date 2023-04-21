@@ -18,6 +18,68 @@ recordButton.addEventListener("click", startRecording);
 stopButton.addEventListener("click", stopRecording);
 pauseButton.addEventListener("click", pauseRecording);
 
+var audio_device_id;
+
+
+//const supportedConstraints = navigator.mediaDevices.getSupportedConstraints();
+//let constraintList = document.body
+//for (const constraint of Object.keys(supportedConstraints)) {
+//  const elem = document.createElement("li");
+//  elem.innerHTML = `<code>${constraint}</code>`;
+//  constraintList.appendChild(elem);
+//}
+
+
+if (!navigator.mediaDevices?.enumerateDevices) {
+  console.log("enumerateDevices() not supported.");
+} else {
+  // List cameras and microphones.
+  navigator.mediaDevices
+    .enumerateDevices()
+    .then((devices) => {
+      console.log(devices);
+      let table = document.createElement("table");
+      let header = table.createTHead();
+      let row = header.insertRow(0);
+      let th1 = document.createElement("th");
+      th1.innerHTML = "Device Type";
+      let th2 = document.createElement("th");
+      th2.innerHTML = "Device Label";
+      let th3 = document.createElement("th");
+      th3.innerHTML = "Device ID";
+      let th4 = document.createElement("th");
+      th4.innerHTML = "Select";
+      row.appendChild(th1);
+      row.appendChild(th2);
+      row.appendChild(th3);
+      row.appendChild(th4);
+
+      let tbody = document.createElement("tbody");
+      devices.forEach((device) => {
+        let row = tbody.insertRow(-1);
+        let type = row.insertCell(0);
+        let label = row.insertCell(1);
+        let id = row.insertCell(2);
+        let button = row.insertCell(3);
+        type.innerHTML = device.kind;
+        label.innerHTML = device.label;
+        id.innerHTML = device.deviceId;
+        button.innerHTML = '<button>Select</button>';
+        button.onclick = function () {
+          audio_device_id = device.deviceId;
+          console.log("Selected device: ", device.label, device.deviceId);
+        };
+      });
+
+      table.appendChild(tbody);
+      document.body.appendChild(table);
+    })
+    .catch((err) => {
+      console.error(`${err.name}: ${err.message}`);
+    });
+}
+
+
 function startRecording() {
 	console.log("recordButton clicked");
 
@@ -26,8 +88,8 @@ function startRecording() {
 		https://addpipe.com/blog/audio-constraints-getusermedia/
 	*/
     
-    var constraints = { audio: true, video:false }
-
+    var constraints = { audio: {deviceId: { exact: audio_device_id } } , video:false }
+    console.log('using constraints', constraints)
  	/*
     	Disable the record button until we get a success or fail from getUserMedia() 
 	*/
@@ -41,6 +103,7 @@ function startRecording() {
     	https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
 	*/
 
+
 	navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
 		console.log("getUserMedia() success, stream created, initializing Recorder.js ...");
 
@@ -51,7 +114,7 @@ function startRecording() {
 
 		*/
 		audioContext = new AudioContext();
-
+        console.log("using context", audioContext)
 		//update the format 
 		document.getElementById("formats").innerHTML="Format: 1 channel pcm @ "+audioContext.sampleRate/1000+"kHz"
 
@@ -60,7 +123,7 @@ function startRecording() {
 		
 		/* use the stream */
 		input = audioContext.createMediaStreamSource(stream);
-
+        console.log("here is the input", input)
 		/* 
 			Create the Recorder object and configure to record mono sound (1 channel)
 			Recording 2 channels  will double the file size
