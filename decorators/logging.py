@@ -69,7 +69,8 @@ def middleware_log_request_info():
 
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     folder = os.path.join(os.getcwd(), "request_logs", f"request-{timestamp.replace(':', '-')}")
-    os.mkdir(folder)
+    if not os.path.exists(folder):
+        os.mkdir(folder)
 
     if 'file' in request.files:
         file = request.files['file']

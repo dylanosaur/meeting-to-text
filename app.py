@@ -10,10 +10,12 @@ from database import db, SoundClip
 from decorators.logging import middleware_log_request_info
 from transcription import transcribe_audio
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='./static')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("AI_DETECTOR_RDS_URL")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['UPLOAD_FOLDER'] = 'uploads'
+
+
 
 db.init_app(app)
 
@@ -178,7 +180,9 @@ def delete_all_sound_clips():
         return f'An error occurred while deleting sound clips: {str(e)}', 500
 
 
-
+@app.route('/record', methods=['GET'])
+def record_component():
+    return render_template('record.html')
 
 if __name__ == '__main__':
     app.run()
